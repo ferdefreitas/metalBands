@@ -35,7 +35,8 @@ const closeModalBtn = modal.select(".modal-close");
 
 closeModalBtn.on("click", closeModal);
 modal.on("click", (event) => {
-  if (event.target === modal.node()) {
+  const target = event.target;
+  if (target === modal.node() || target.classList.contains("modal-overlay")) {
     closeModal();
   }
 });
