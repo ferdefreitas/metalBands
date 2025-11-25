@@ -44,16 +44,16 @@ modal.on("click", (event) => {
 // ===================== ESCALAS =====================
 
 // Escala de cor em 5 tons de verde
-// 0   -> #003304 (menos bandas, mais escuro)
-// 1   -> #9cff92 (mais bandas, mais claro)
+// 0   -> #811b20 (menos bandas, mais escuro)
+// 1   -> #f34049 (mais bandas, mais claro)
 const colorScale = d3.scaleLinear()
   .domain([0, 0.25, 0.5, 0.75, 1])
   .range([
-    "#003304", // mais escuro
-    "#086c0b",
-    "#00b502",
-    "#27fb20",
-    "#9cff92"  // mais claro
+    "#811b20", // mais escuro
+    "#a81a21",
+    "#bd1820",
+    "#e0222b",
+    "#f34049"  // mais claro
   ]);
 
 // Raio mínimo para bolhas sempre visíveis
