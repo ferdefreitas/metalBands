@@ -82,10 +82,10 @@ function originToWorldName(origin) {
     Holland: "Netherlands",
     "The Netherlands": "Netherlands",
     UAE: "United Arab Emirates",
-    Russia: "Russian Federation",
-    "Russian Federation": "Russian Federation",
-    "South Korea": "Republic of Korea",
-    "North Korea": "Dem. Rep. Korea",
+    Russia: "Russia",
+    "Russian Federation": "Russia",
+    "South Korea": "South Korea",
+    "North Korea": "North Korea",
     "Czech Republic": "Czechia",
   };
   return map[base] || base;
