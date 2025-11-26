@@ -43,17 +43,17 @@ modal.on("click", (event) => {
 
 // ===================== ESCALAS =====================
 
-// Escala de cor em 5 tons de verde
-// 0   -> #003304 (menos bandas, mais escuro)
-// 1   -> #9cff92 (mais bandas, mais claro)
+// Escala de cor em 5 tons de vermelho
+// 0   -> #330000 (menos bandas, mais escuro)
+// 1   -> #ffb3b3 (mais bandas, mais claro)
 const colorScale = d3.scaleLinear()
   .domain([0, 0.25, 0.5, 0.75, 1])
   .range([
-    "#003304", // mais escuro
-    "#086c0b",
-    "#00b502",
-    "#27fb20",
-    "#9cff92"  // mais claro
+    "#330000", // mais escuro
+    "#7a0000",
+    "#b30000",
+    "#e64a4a",
+    "#ffb3b3"  // mais claro
   ]);
 
 // Raio mínimo para bolhas sempre visíveis
@@ -148,7 +148,7 @@ function drawBaseMap() {
     .join("path")
     .attr("class", "country")
     .attr("d", path)
-    .attr("fill", "#003304") // cor base (mais escura)
+    .attr("fill", "#330000") // cor base (mais escura)
     .attr("stroke", "#000")
     .attr("stroke-width", 0.3);
 }
@@ -238,8 +238,8 @@ function handleCountryHover(event, feature) {
   tooltip
     .style("opacity", 1)
     .html(`<strong>${countryName}</strong><br/>${label}`)
-    .style("left", event.pageX + 14 + "px")
-    .style("top", event.pageY - 28 + "px");
+    .style("left", event.pageX + 8 + "px")
+    .style("top", event.pageY - 16 + "px");
 }
 
 function handleCountryClick(event, feature) {

@@ -9,7 +9,9 @@ The visualization is powered by `metal_bands_2017(data_cleanDuplicated).csv`, wh
 Serve the static files with Python's built-in HTTP server and open the map in your browser.
 
 ```bash
-python -m http.server 8000
+python3 -m http.server 8000
+# se a porta já estiver em uso, finalize o servidor anterior
+fuser -k 8000/tcp
 ```
 
 Then visit [http://localhost:8000/metalBands.html](http://localhost:8000/metalBands.html).
