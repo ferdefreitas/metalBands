@@ -26,6 +26,21 @@ let path = d3.geoPath(projection);
 
 const tooltip = d3.select("#tooltip");
 
+// Modal elements
+const modal = d3.select("#modal");
+const modalTitle = modal.select(".modal-title");
+const modalBody = modal.select(".modal-body");
+const modalControls = modal.select(".modal-controls");
+const closeModalBtn = modal.select(".modal-close");
+
+closeModalBtn.on("click", closeModal);
+modal.on("click", (event) => {
+  const target = event.target;
+  if (target === modal.node() || target.classList.contains("modal-overlay")) {
+    closeModal();
+  }
+});
+
 // ===================== ESCALAS =====================
 
 // Escala de cor em 5 tons de verde
@@ -42,10 +57,9 @@ const colorScale = d3.scaleLinear()
   ]);
 
 // Raio mínimo para bolhas sempre visíveis
-const radiusScale = d3.scaleSqrt().range([2, 20]);
-
 let countryPaths;
-let bubbleLayer;
+let filteredBands = [];
+let countryCounts = new Map();
 
 // Estado dos filtros
 let currentDecade = "All";
@@ -68,10 +82,10 @@ function originToWorldName(origin) {
     Holland: "Netherlands",
     "The Netherlands": "Netherlands",
     UAE: "United Arab Emirates",
-    Russia: "Russian Federation",
-    "Russian Federation": "Russian Federation",
-    "South Korea": "Republic of Korea",
-    "North Korea": "Dem. Rep. Korea",
+    Russia: "Russia",
+    "Russian Federation": "Russia",
+    "South Korea": "South Korea",
+    "North Korea": "North Korea",
     "Czech Republic": "Czechia",
   };
   return map[base] || base;
@@ -102,6 +116,7 @@ Promise.all([
           formed_year: formedYear,
           decade,
           origin_main: originMain,
+          origin_world: originToWorldName(originMain),
           styles,
           is_active: isActive,
         };
@@ -136,9 +151,6 @@ function drawBaseMap() {
     .attr("fill", "#003304") // cor base (mais escura)
     .attr("stroke", "#000")
     .attr("stroke-width", 0.3);
-
-  // Bolhas por cima
-  bubbleLayer = g.append("g").attr("class", "bubble-layer");
 }
 
 // ===================== SUBGÊNEROS =====================
@@ -175,94 +187,203 @@ function attachFilterListeners() {
 
 // ===================== UPDATE =====================
 function update() {
-  let filtered = bands.slice();
-
-  if (currentDecade !== "All") {
-    filtered = filtered.filter((d) => d.decade === +currentDecade);
-  }
-
-  if (currentStatus !== "all") {
-    filtered = filtered.filter((d) =>
-      currentStatus === "active" ? d.is_active : !d.is_active
+  filteredBands = bands
+    .filter((d) => (currentDecade === "All" ? true : d.decade === +currentDecade))
+    .filter((d) =>
+      currentStatus === "all"
+        ? true
+        : currentStatus === "active"
+          ? d.is_active
+          : !d.is_active
+    )
+    .filter((d) =>
+      currentSubgenre === "All" ? true : d.styles.includes(currentSubgenre)
     );
-  }
 
-  if (currentSubgenre !== "All") {
-    filtered = filtered.filter((d) => d.styles.includes(currentSubgenre));
-  }
-
-  // Agregar por país
-  const countryCounts = d3.rollup(
-    filtered,
+  countryCounts = d3.rollup(
+    filteredBands,
     (v) => v.length,
-    (d) => originToWorldName(d.origin_main)
+    (d) => d.origin_world
   );
 
   const maxCount = d3.max(countryCounts.values()) || 1;
 
-  // MAPA – cor (normaliza 0..maxCount → 0..1)
-  countryPaths.attr("fill", (d) => {
-    const val = countryCounts.get(d.properties.name) || 0;
-    const t = val / maxCount; // 0..1
-    return colorScale(t);
-  });
-
-  // BOLHAS
-  const bubbleData = Array.from(countryCounts, ([name, count]) => {
-    const f = nameToFeature.get(name);
-    if (!f || !count) return null;
-    const [x, y] = path.centroid(f);
-    if (isNaN(x) || isNaN(y)) return null;
-    return { name, count, x, y };
-  }).filter(Boolean);
-
-  radiusScale.domain([0, maxCount]);
-
-  const bubbles = bubbleLayer
-    .selectAll("circle.country-bubble")
-    .data(bubbleData, (d) => d.name);
-
-  bubbles.join(
-    (enter) =>
-      enter
-        .append("circle")
-        .attr("class", "country-bubble")
-        .attr("cx", (d) => d.x)
-        .attr("cy", (d) => d.y)
-        .attr("r", 0)
-        .attr("fill", "#9cff92")   // mesma paleta (claro)
-        .attr("fill-opacity", 0.7)
-        .attr("stroke", "none")    // sem contorno
-        .on("mousemove", showTooltip)
-        .on("mouseout", hideTooltip)
-        .transition()
-        .duration(500)
-        .attr("r", (d) => radiusScale(d.count)),
-    (updateSel) =>
-      updateSel
-        .on("mousemove", showTooltip)
-        .on("mouseout", hideTooltip)
-        .transition()
-        .duration(500)
-        .attr("r", (d) => radiusScale(d.count)),
-    (exit) =>
-      exit
-        .transition()
-        .duration(400)
-        .attr("r", 0)
-        .remove()
-  );
+  countryPaths
+    .attr("fill", (d) => {
+      const val = countryCounts.get(d.properties.name) || 0;
+      const t = val / maxCount;
+      return colorScale(t);
+    })
+    .classed("disabled", (d) => (countryCounts.get(d.properties.name) || 0) === 0)
+    .on("mousemove", (event, d) => handleCountryHover(event, d))
+    .on("mouseout", hideTooltip)
+    .on("click", (event, d) => handleCountryClick(event, d));
 }
 
-// ===================== TOOLTIP =====================
-function showTooltip(event, d) {
+// ===================== INTERAÇÕES DE PAÍS =====================
+function handleCountryHover(event, feature) {
+  const countryName = feature.properties.name;
+  const count = countryCounts.get(countryName) || 0;
+
+  if (!count) {
+    hideTooltip();
+    return;
+  }
+
+  const label =
+    currentSubgenre === "All"
+      ? `Bands: ${count}`
+      : `${currentSubgenre}: ${count}`;
+
   tooltip
     .style("opacity", 1)
-    .html(`<strong>${d.name}</strong><br/>Bands: ${d.count}`)
+    .html(`<strong>${countryName}</strong><br/>${label}`)
     .style("left", event.pageX + 14 + "px")
     .style("top", event.pageY - 28 + "px");
 }
 
+function handleCountryClick(event, feature) {
+  const countryName = feature.properties.name;
+  const countryBands = filteredBands.filter((b) => b.origin_world === countryName);
+
+  if (!countryBands.length) return;
+
+  if (currentSubgenre === "All") {
+    openSubgenreModal(countryName, countryBands);
+  } else {
+    openBandListModal(countryName, currentSubgenre, countryBands);
+  }
+}
+
 function hideTooltip() {
   tooltip.style("opacity", 0);
+}
+
+// ===================== MODAL AUXILIAR =====================
+function closeModal() {
+  modal.classed("hidden", true);
+}
+
+function openModalTable({ title, columns, rows, searchableKeys, statusFilter }) {
+  modalTitle.text(title);
+  modalBody.html("");
+  modalControls.html("");
+
+  const searchInput = modalControls
+    .append("input")
+    .attr("type", "search")
+    .attr("placeholder", "Search...");
+
+  let statusSelect = null;
+  if (statusFilter) {
+    statusSelect = modalControls
+      .append("select")
+      .on("change", applyFilters);
+
+    statusSelect
+      .selectAll("option")
+      .data([
+        { label: "All statuses", value: "all" },
+        { label: "Active", value: "active" },
+        { label: "Inactive", value: "inactive" },
+      ])
+      .join("option")
+      .attr("value", (d) => d.value)
+      .text((d) => d.label);
+  }
+
+  const table = modalBody.append("table");
+  const thead = table.append("thead");
+  const tbody = table.append("tbody");
+
+  thead
+    .append("tr")
+    .selectAll("th")
+    .data(columns)
+    .join("th")
+    .text((d) => d.label);
+
+  searchInput.on("input", applyFilters);
+
+  function applyFilters() {
+    const term = searchInput.node().value.trim().toLowerCase();
+    const statusValue = statusSelect ? statusSelect.node().value : "all";
+
+    const filteredRows = rows.filter((row) => {
+      const matchesSearch = !term
+        ? true
+        : (searchableKeys || columns.map((c) => c.key)).some((key) =>
+            String(row[key] || "").toLowerCase().includes(term)
+          );
+
+      const matchesStatus = statusSelect
+        ? statusValue === "all"
+          ? true
+          : statusValue === "active"
+            ? row.status === "Active"
+            : row.status !== "Active"
+        : true;
+
+      return matchesSearch && matchesStatus;
+    });
+
+    const rowSel = tbody.selectAll("tr").data(filteredRows, (_, i) => i);
+
+    rowSel
+      .join("tr")
+      .selectAll("td")
+      .data((d) => columns.map((col) => d[col.key] ?? ""))
+      .join("td")
+      .text((d) => d);
+  }
+
+  applyFilters();
+  modal.classed("hidden", false);
+}
+
+function openSubgenreModal(countryName, countryBands) {
+  const rows = d3
+    .rollups(
+      countryBands.flatMap((b) => b.styles.map((style) => ({ style }))),
+      (v) => v.length,
+      (d) => d.style
+    )
+    .map(([subgenre, count]) => ({ subgenre, count }))
+    .sort((a, b) => d3.descending(a.count, b.count));
+
+  openModalTable({
+    title: `${countryName} — bands by subgenre`,
+    columns: [
+      { key: "subgenre", label: "Subgenre" },
+      { key: "count", label: "Bands" },
+    ],
+    rows,
+    searchableKeys: ["subgenre"],
+    statusFilter: false,
+  });
+}
+
+function openBandListModal(countryName, subgenreName, countryBands) {
+  const rows = countryBands
+    .filter((b) => b.styles.includes(subgenreName))
+    .map((b) => ({
+      band: b.band_name,
+      formed: b.formed_year,
+      styles: b.styles.join(", "),
+      status: b.is_active ? "Active" : `Inactive (${b.split || ""})`,
+    }))
+    .sort((a, b) => d3.ascending(a.band, b.band));
+
+  openModalTable({
+    title: `${countryName} — ${subgenreName} bands`,
+    columns: [
+      { key: "band", label: "Band" },
+      { key: "formed", label: "Formed" },
+      { key: "styles", label: "Styles" },
+      { key: "status", label: "Status" },
+    ],
+    rows,
+    searchableKeys: ["band", "styles"],
+    statusFilter: true,
+  });
 }
