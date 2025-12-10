@@ -289,7 +289,14 @@ function closeModal() {
   modal.classed("hidden", true);
 }
 
-function openModalTable({ title, columns, rows, searchableKeys, statusFilter }) {
+function openModalTable({
+  title,
+  columns,
+  rows,
+  searchableKeys,
+  statusFilter,
+  styleFilter,
+}) {
   modalTitle.text(title);
   modalBody.html("");
   modalControls.html("");
@@ -300,6 +307,7 @@ function openModalTable({ title, columns, rows, searchableKeys, statusFilter }) 
     .attr("placeholder", "Search...");
 
   let statusSelect = null;
+  let styleSelect = null;
   if (statusFilter) {
     statusSelect = modalControls
       .append("select")
@@ -315,6 +323,19 @@ function openModalTable({ title, columns, rows, searchableKeys, statusFilter }) 
       .join("option")
       .attr("value", (d) => d.value)
       .text((d) => d.label);
+  }
+
+  if (styleFilter && styleFilter.length) {
+    styleSelect = modalControls
+      .append("select")
+      .on("change", applyFilters);
+
+    styleSelect
+      .selectAll("option")
+      .data([{ label: "All genres", value: "all" }, ...styleFilter])
+      .join("option")
+      .attr("value", (d) => d.value || d)
+      .text((d) => d.label || d);
   }
 
   const table = modalBody.append("table");
@@ -333,6 +354,7 @@ function openModalTable({ title, columns, rows, searchableKeys, statusFilter }) 
   function applyFilters() {
     const term = searchInput.node().value.trim().toLowerCase();
     const statusValue = statusSelect ? statusSelect.node().value : "all";
+    const styleValue = styleSelect ? styleSelect.node().value : "all";
 
     const filteredRows = rows.filter((row) => {
       const matchesSearch = !term
@@ -349,7 +371,13 @@ function openModalTable({ title, columns, rows, searchableKeys, statusFilter }) 
             : row.status !== "Active"
         : true;
 
-      return matchesSearch && matchesStatus;
+      const matchesStyle = styleSelect
+        ? styleValue === "all"
+          ? true
+          : (row.styleList || []).includes(styleValue)
+        : true;
+
+      return matchesSearch && matchesStatus && matchesStyle;
     });
 
     const rowSel = tbody.selectAll("tr").data(filteredRows, (_, i) => i);
@@ -372,9 +400,16 @@ function openCountryBandModal(countryName, countryBands) {
       band: b.band_name,
       formed: b.formed_year,
       styles: b.styles.join(", "),
+      styleList: b.styles,
       status: b.is_active ? "Active" : `Inactive (${b.split || ""})`,
     }))
     .sort((a, b) => d3.ascending(a.band, b.band));
+
+  const styleFilter = Array.from(
+    new Set(countryBands.flatMap((b) => b.styles))
+  )
+    .sort(d3.ascending)
+    .map((s) => ({ label: s, value: s }));
 
   openModalTable({
     title: `${countryName} — bands`,
@@ -387,6 +422,7 @@ function openCountryBandModal(countryName, countryBands) {
     rows,
     searchableKeys: ["band", "styles"],
     statusFilter: true,
+    styleFilter,
   });
 }
 
@@ -397,9 +433,16 @@ function openBandListModal(countryName, subgenreName, countryBands) {
       band: b.band_name,
       formed: b.formed_year,
       styles: b.styles.join(", "),
+      styleList: b.styles,
       status: b.is_active ? "Active" : `Inactive (${b.split || ""})`,
     }))
     .sort((a, b) => d3.ascending(a.band, b.band));
+
+  const styleFilter = Array.from(
+    new Set(countryBands.flatMap((b) => b.styles))
+  )
+    .sort(d3.ascending)
+    .map((s) => ({ label: s, value: s }));
 
   openModalTable({
     title: `${countryName} — ${subgenreName} bands`,
@@ -412,5 +455,6 @@ function openBandListModal(countryName, subgenreName, countryBands) {
     rows,
     searchableKeys: ["band", "styles"],
     statusFilter: true,
+    styleFilter,
   });
 }
