@@ -42,7 +42,6 @@ modal.on("click", (event) => {
 });
 
 // ===================== ESCALAS =====================
-
 // Escala de cor em 5 tons de vermelho
 // 0   -> #330000 (menos bandas, mais escuro)
 // 1   -> #ffb3b3 (mais bandas, mais claro)
@@ -54,6 +53,7 @@ const colorScale = d3.scaleLinear()
     "#b30000",
     "#e64a4a",
     "#ffb3b3"  // mais claro
+
   ]);
 
 // Raio mínimo para bolhas sempre visíveis
@@ -240,6 +240,20 @@ function handleCountryHover(event, feature) {
     .html(`<strong>${countryName}</strong><br/>${label}`)
     .style("left", event.pageX + 8 + "px")
     .style("top", event.pageY - 16 + "px");
+}
+
+function handleCountryClick(event, feature) {
+  const countryName = feature.properties.name;
+  const countryBands = filteredBands.filter((b) => b.origin_world === countryName);
+
+  if (!countryBands.length) return;
+
+  if (currentSubgenre === "All") {
+    openSubgenreModal(countryName, countryBands);
+  } else {
+    openBandListModal(countryName, currentSubgenre, countryBands);
+  }
+
 }
 
 function handleCountryClick(event, feature) {
