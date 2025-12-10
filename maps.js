@@ -72,6 +72,24 @@ let countries = [];
 let nameToFeature = new Map();
 
 // ===================== MAPA DE NOMES DE PAÍSES =====================
+function normalizeOriginName(origin) {
+  if (!origin) return "";
+
+  const parts = origin
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  if (parts.length >= 2) {
+    const direction = parts[1].toLowerCase();
+    if (direction === "south" || direction === "north") {
+      return `${direction.charAt(0).toUpperCase()}${direction.slice(1)} ${parts[0]}`;
+    }
+  }
+
+  return parts[0] || "";
+}
+
 function originToWorldName(origin) {
   if (!origin) return null;
   const base = origin.trim();
@@ -86,6 +104,9 @@ function originToWorldName(origin) {
     "Russian Federation": "Russia",
     "South Korea": "South Korea",
     "North Korea": "North Korea",
+    "Korea, South": "South Korea",
+    "Korea, North": "North Korea",
+    Korea: "South Korea",
     "Czech Republic": "Czechia",
   };
   return map[base] || base;
@@ -104,7 +125,7 @@ Promise.all([
         const decade = isFinite(formedYear)
           ? Math.floor(formedYear / 10) * 10
           : null;
-        const originMain = (d.origin || "").split(",")[0].trim();
+        const originMain = normalizeOriginName(d.origin || "");
         const styles = (d.style || "")
           .split(",")
           .map((s) => s.trim())
@@ -253,21 +274,7 @@ function handleCountryClick(event, feature) {
   if (!countryBands.length) return;
 
   if (currentSubgenre === "All") {
-    openSubgenreModal(countryName, countryBands);
-  } else {
-    openBandListModal(countryName, currentSubgenre, countryBands);
-  }
-
-}
-
-function handleCountryClick(event, feature) {
-  const countryName = feature.properties.name;
-  const countryBands = filteredBands.filter((b) => b.origin_world === countryName);
-
-  if (!countryBands.length) return;
-
-  if (currentSubgenre === "All") {
-    openSubgenreModal(countryName, countryBands);
+    openCountryBandModal(countryName, countryBands);
   } else {
     openBandListModal(countryName, currentSubgenre, countryBands);
   }
@@ -282,7 +289,14 @@ function closeModal() {
   modal.classed("hidden", true);
 }
 
-function openModalTable({ title, columns, rows, searchableKeys, statusFilter }) {
+function openModalTable({
+  title,
+  columns,
+  rows,
+  searchableKeys,
+  statusFilter,
+  styleFilter,
+}) {
   modalTitle.text(title);
   modalBody.html("");
   modalControls.html("");
@@ -293,6 +307,7 @@ function openModalTable({ title, columns, rows, searchableKeys, statusFilter }) 
     .attr("placeholder", "Search...");
 
   let statusSelect = null;
+  let styleSelect = null;
   if (statusFilter) {
     statusSelect = modalControls
       .append("select")
@@ -308,6 +323,19 @@ function openModalTable({ title, columns, rows, searchableKeys, statusFilter }) 
       .join("option")
       .attr("value", (d) => d.value)
       .text((d) => d.label);
+  }
+
+  if (styleFilter && styleFilter.length) {
+    styleSelect = modalControls
+      .append("select")
+      .on("change", applyFilters);
+
+    styleSelect
+      .selectAll("option")
+      .data([{ label: "All genres", value: "all" }, ...styleFilter])
+      .join("option")
+      .attr("value", (d) => d.value || d)
+      .text((d) => d.label || d);
   }
 
   const table = modalBody.append("table");
@@ -326,6 +354,7 @@ function openModalTable({ title, columns, rows, searchableKeys, statusFilter }) 
   function applyFilters() {
     const term = searchInput.node().value.trim().toLowerCase();
     const statusValue = statusSelect ? statusSelect.node().value : "all";
+    const styleValue = styleSelect ? styleSelect.node().value : "all";
 
     const filteredRows = rows.filter((row) => {
       const matchesSearch = !term
@@ -342,7 +371,13 @@ function openModalTable({ title, columns, rows, searchableKeys, statusFilter }) 
             : row.status !== "Active"
         : true;
 
-      return matchesSearch && matchesStatus;
+      const matchesStyle = styleSelect
+        ? styleValue === "all"
+          ? true
+          : (row.styleList || []).includes(styleValue)
+        : true;
+
+      return matchesSearch && matchesStatus && matchesStyle;
     });
 
     const rowSel = tbody.selectAll("tr").data(filteredRows, (_, i) => i);
@@ -359,25 +394,35 @@ function openModalTable({ title, columns, rows, searchableKeys, statusFilter }) 
   modal.classed("hidden", false);
 }
 
-function openSubgenreModal(countryName, countryBands) {
-  const rows = d3
-    .rollups(
-      countryBands.flatMap((b) => b.styles.map((style) => ({ style }))),
-      (v) => v.length,
-      (d) => d.style
-    )
-    .map(([subgenre, count]) => ({ subgenre, count }))
-    .sort((a, b) => d3.descending(a.count, b.count));
+function openCountryBandModal(countryName, countryBands) {
+  const rows = countryBands
+    .map((b) => ({
+      band: b.band_name,
+      formed: b.formed_year,
+      styles: b.styles.join(", "),
+      styleList: b.styles,
+      status: b.is_active ? "Active" : `Inactive (${b.split || ""})`,
+    }))
+    .sort((a, b) => d3.ascending(a.band, b.band));
+
+  const styleFilter = Array.from(
+    new Set(countryBands.flatMap((b) => b.styles))
+  )
+    .sort(d3.ascending)
+    .map((s) => ({ label: s, value: s }));
 
   openModalTable({
-    title: `${countryName} — bands by subgenre`,
+    title: `${countryName} — bands`,
     columns: [
-      { key: "subgenre", label: "Subgenre" },
-      { key: "count", label: "Bands" },
+      { key: "band", label: "Band" },
+      { key: "formed", label: "Formed" },
+      { key: "styles", label: "Styles" },
+      { key: "status", label: "Status" },
     ],
     rows,
-    searchableKeys: ["subgenre"],
-    statusFilter: false,
+    searchableKeys: ["band", "styles"],
+    statusFilter: true,
+    styleFilter,
   });
 }
 
@@ -388,9 +433,16 @@ function openBandListModal(countryName, subgenreName, countryBands) {
       band: b.band_name,
       formed: b.formed_year,
       styles: b.styles.join(", "),
+      styleList: b.styles,
       status: b.is_active ? "Active" : `Inactive (${b.split || ""})`,
     }))
     .sort((a, b) => d3.ascending(a.band, b.band));
+
+  const styleFilter = Array.from(
+    new Set(countryBands.flatMap((b) => b.styles))
+  )
+    .sort(d3.ascending)
+    .map((s) => ({ label: s, value: s }));
 
   openModalTable({
     title: `${countryName} — ${subgenreName} bands`,
@@ -403,5 +455,6 @@ function openBandListModal(countryName, subgenreName, countryBands) {
     rows,
     searchableKeys: ["band", "styles"],
     statusFilter: true,
+    styleFilter,
   });
 }
