@@ -85,6 +85,8 @@ function originToWorldName(origin) {
     Russia: "Russian Federation",
     "Russian Federation": "Russian Federation",
     "South Korea": "Republic of Korea",
+    "Korea": "Republic of Korea",
+    "Korea, South": "Republic of Korea",
     "North Korea": "Dem. Rep. Korea",
     "Czech Republic": "Czechia",
   };
