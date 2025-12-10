@@ -72,6 +72,24 @@ let countries = [];
 let nameToFeature = new Map();
 
 // ===================== MAPA DE NOMES DE PAÍSES =====================
+function normalizeOriginName(origin) {
+  if (!origin) return "";
+
+  const parts = origin
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  if (parts.length >= 2) {
+    const direction = parts[1].toLowerCase();
+    if (direction === "south" || direction === "north") {
+      return `${direction.charAt(0).toUpperCase()}${direction.slice(1)} ${parts[0]}`;
+    }
+  }
+
+  return parts[0] || "";
+}
+
 function originToWorldName(origin) {
   if (!origin) return null;
   const base = origin.trim();
@@ -86,6 +104,9 @@ function originToWorldName(origin) {
     "Russian Federation": "Russia",
     "South Korea": "South Korea",
     "North Korea": "North Korea",
+    "Korea, South": "South Korea",
+    "Korea, North": "North Korea",
+    Korea: "South Korea",
     "Czech Republic": "Czechia",
   };
   return map[base] || base;
@@ -104,7 +125,7 @@ Promise.all([
         const decade = isFinite(formedYear)
           ? Math.floor(formedYear / 10) * 10
           : null;
-        const originMain = (d.origin || "").split(",")[0].trim();
+        const originMain = normalizeOriginName(d.origin || "");
         const styles = (d.style || "")
           .split(",")
           .map((s) => s.trim())
