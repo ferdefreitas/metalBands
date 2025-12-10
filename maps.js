@@ -42,18 +42,18 @@ modal.on("click", (event) => {
 });
 
 // ===================== ESCALAS =====================
-
-// Escala de cor em 5 tons de verde
-// 0   -> #811b20 (menos bandas, mais escuro)
-// 1   -> #f34049 (mais bandas, mais claro)
+// Escala de cor em 5 tons de vermelho
+// 0   -> #330000 (menos bandas, mais escuro)
+// 1   -> #ffb3b3 (mais bandas, mais claro)
 const colorScale = d3.scaleLinear()
   .domain([0, 0.25, 0.5, 0.75, 1])
   .range([
-    "#811b20", // mais escuro
-    "#a81a21",
-    "#bd1820",
-    "#e0222b",
-    "#f34049"  // mais claro
+    "#330000", // mais escuro
+    "#7a0000",
+    "#b30000",
+    "#e64a4a",
+    "#ffb3b3"  // mais claro
+
   ]);
 
 // Raio mínimo para bolhas sempre visíveis
@@ -82,10 +82,10 @@ function originToWorldName(origin) {
     Holland: "Netherlands",
     "The Netherlands": "Netherlands",
     UAE: "United Arab Emirates",
-    Russia: "Russian Federation",
-    "Russian Federation": "Russian Federation",
-    "South Korea": "Republic of Korea",
-    "North Korea": "Dem. Rep. Korea",
+    Russia: "Russia",
+    "Russian Federation": "Russia",
+    "South Korea": "South Korea",
+    "North Korea": "North Korea",
     "Czech Republic": "Czechia",
   };
   return map[base] || base;
@@ -148,7 +148,7 @@ function drawBaseMap() {
     .join("path")
     .attr("class", "country")
     .attr("d", path)
-    .attr("fill", "#003304") // cor base (mais escura)
+    .attr("fill", "#330000") // cor base (mais escura)
     .attr("stroke", "#000")
     .attr("stroke-width", 0.3);
 }
@@ -238,8 +238,22 @@ function handleCountryHover(event, feature) {
   tooltip
     .style("opacity", 1)
     .html(`<strong>${countryName}</strong><br/>${label}`)
-    .style("left", event.pageX + 14 + "px")
-    .style("top", event.pageY - 28 + "px");
+    .style("left", event.pageX + 8 + "px")
+    .style("top", event.pageY - 16 + "px");
+}
+
+function handleCountryClick(event, feature) {
+  const countryName = feature.properties.name;
+  const countryBands = filteredBands.filter((b) => b.origin_world === countryName);
+
+  if (!countryBands.length) return;
+
+  if (currentSubgenre === "All") {
+    openSubgenreModal(countryName, countryBands);
+  } else {
+    openBandListModal(countryName, currentSubgenre, countryBands);
+  }
+
 }
 
 function handleCountryClick(event, feature) {
