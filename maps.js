@@ -274,21 +274,7 @@ function handleCountryClick(event, feature) {
   if (!countryBands.length) return;
 
   if (currentSubgenre === "All") {
-    openSubgenreModal(countryName, countryBands);
-  } else {
-    openBandListModal(countryName, currentSubgenre, countryBands);
-  }
-
-}
-
-function handleCountryClick(event, feature) {
-  const countryName = feature.properties.name;
-  const countryBands = filteredBands.filter((b) => b.origin_world === countryName);
-
-  if (!countryBands.length) return;
-
-  if (currentSubgenre === "All") {
-    openSubgenreModal(countryName, countryBands);
+    openCountryBandModal(countryName, countryBands);
   } else {
     openBandListModal(countryName, currentSubgenre, countryBands);
   }
@@ -380,25 +366,27 @@ function openModalTable({ title, columns, rows, searchableKeys, statusFilter }) 
   modal.classed("hidden", false);
 }
 
-function openSubgenreModal(countryName, countryBands) {
-  const rows = d3
-    .rollups(
-      countryBands.flatMap((b) => b.styles.map((style) => ({ style }))),
-      (v) => v.length,
-      (d) => d.style
-    )
-    .map(([subgenre, count]) => ({ subgenre, count }))
-    .sort((a, b) => d3.descending(a.count, b.count));
+function openCountryBandModal(countryName, countryBands) {
+  const rows = countryBands
+    .map((b) => ({
+      band: b.band_name,
+      formed: b.formed_year,
+      styles: b.styles.join(", "),
+      status: b.is_active ? "Active" : `Inactive (${b.split || ""})`,
+    }))
+    .sort((a, b) => d3.ascending(a.band, b.band));
 
   openModalTable({
-    title: `${countryName} — bands by subgenre`,
+    title: `${countryName} — bands`,
     columns: [
-      { key: "subgenre", label: "Subgenre" },
-      { key: "count", label: "Bands" },
+      { key: "band", label: "Band" },
+      { key: "formed", label: "Formed" },
+      { key: "styles", label: "Styles" },
+      { key: "status", label: "Status" },
     ],
     rows,
-    searchableKeys: ["subgenre"],
-    statusFilter: false,
+    searchableKeys: ["band", "styles"],
+    statusFilter: true,
   });
 }
 
