@@ -235,11 +235,15 @@ function handleCountryHover(event, feature) {
       ? `Bands: ${count}`
       : `${currentSubgenre}: ${count}`;
 
+  const wrapperRect = svg.node().parentNode.getBoundingClientRect();
+  const x = event.clientX - wrapperRect.left;
+  const y = event.clientY - wrapperRect.top;
+
   tooltip
     .style("opacity", 1)
     .html(`<strong>${countryName}</strong><br/>${label}`)
-    .style("left", event.pageX + 8 + "px")
-    .style("top", event.pageY - 16 + "px");
+    .style("left", `${x + 12}px`)
+    .style("top", `${y - 12}px`);
 }
 
 function handleCountryClick(event, feature) {
